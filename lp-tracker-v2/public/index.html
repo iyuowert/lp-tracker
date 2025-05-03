@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LP Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #111; color: #fff; text-align: center; padding: 40px; }
+    .container { background: #222; padding: 30px; border-radius: 10px; display: inline-block; }
+    h1 { color: #4ade80; }
+    .info { margin-top: 20px; font-size: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>LP Tracker</h1>
+    <p class="info" id="status">Ładowanie danych LP...</p>
+    <p class="info" id="lp"></p>
+    <p class="info" id="to-emerald"></p>
+  </div>
+
+  <script>
+    const RIOT_API_KEY = "RGAPI-09beccbb-12db-4b4e-9aa9-e860f4187a35";
+    const summonerName = "2024MUSIC";
+    const tagLine = "2024";
+
+    async function fetchLP() {
+      try {
+        const accountRes = await fetch(`https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${summonerName}/${tagLine}`, {
+          headers: { "X-Riot-Token": RIOT_API_KEY }
+        });
+        const accountData = await accountRes.json();
+        
+        const summonerRes = await fetch(`https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${accountData.puuid}`, {
+          headers: { "X-Riot-Token": RIOT_API_KEY }
+        });
+        const summoner = await summonerRes.json();
+
+        const rankedRes = await fetch(`https://euw1.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}`, {
+          headers: { "X-Riot-Token": RIOT_API_KEY }
+        });
+        const ranked = await rankedRes.json();
+
+        const soloQ = ranked.find(entry => entry.queueType === "RANKED_SOLO_5x5");
+        if (!soloQ) throw new Error("Brak danych o soloQ.");
+
+        const currentLP = soloQ.leaguePoints;
+        const tier = soloQ.tier;
+        const rank = soloQ.rank;
+
+        const tiers = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD"];
+        const ranks = ["IV", "III", "II", "I"];
+        const currentIndex = tiers.indexOf(tier) * 4 + ranks.indexOf(rank);
+        const emeraldIndex = tiers.indexOf("EMERALD") * 4 + 0;
+        const lpToEmerald = Math.max(0, (emeraldIndex - currentIndex) * 100 - currentLP);
+
+        document.getElementById("status").innerText = `Aktualna ranga: ${tier} ${rank}`;
+        document.getElementById("lp").innerText = `Masz ${currentLP} LP`;
+        document.getElementById("to-emerald").innerText = `Tyle LP brakuje do Emerald IV: ${lpToEmerald}`;
+      } catch (error) {
+        document.getElementById("status").innerText = "Błąd pobierania danych.";
+        console.error(error);
+      }
+    }
+
+    fetchLP();
+  </script>
+</body>
+</html>
