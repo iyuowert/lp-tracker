@@ -1,70 +1,98 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LP Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LP Tracker TFT</title>
   <style>
-    body { font-family: Arial, sans-serif; background-color: #111; color: #fff; text-align: center; padding: 40px; }
-    .container { background: #222; padding: 30px; border-radius: 10px; display: inline-block; }
-    h1 { color: #4ade80; }
-    .info { margin-top: 20px; font-size: 1.2em; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      padding-top: 50px;
+    }
+    .container {
+      background: #1e293b;
+      padding: 30px;
+      margin: auto;
+      width: 300px;
+      border-radius: 20px;
+      box-shadow: 0 0 10px #0ea5e9;
+    }
+    .lp {
+      font-size: 2rem;
+      margin: 20px 0;
+      color: #22d3ee;
+    }
+    .error {
+      color: red;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>LP Tracker</h1>
-    <p class="info" id="status">Ładowanie danych LP...</p>
-    <p class="info" id="lp"></p>
-    <p class="info" id="to-emerald"></p>
+    <h1>LP Tracker TFT</h1>
+    <div id="lp" class="lp">Ładowanie LP...</div>
+    <div id="difference"></div>
+    <div id="error" class="error"></div>
   </div>
 
   <script>
-    const RIOT_API_KEY = "RGAPI-09beccbb-12db-4b4e-9aa9-e860f4187a35";
-    const summonerName = "2024MUSIC";
-    const tagLine = "2024";
+    const RIOT_API_KEY = "RGAPI-31409df3-9a83-4aaf-9edb-f4bace8b87fa";
+    const username = "2024MUSIC";
+    const tag = "2024";
+    const region = "europe"; // for account-v1
+    const platform = "euw1"; // for TFT ranked
 
-    async function fetchLP() {
+    async function getLP() {
       try {
-        const accountRes = await fetch(`https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${summonerName}/${tagLine}`, {
-          headers: { "X-Riot-Token": RIOT_API_KEY }
-        });
-        const accountData = await accountRes.json();
-        
-        const summonerRes = await fetch(`https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${accountData.puuid}`, {
-          headers: { "X-Riot-Token": RIOT_API_KEY }
-        });
+        // 1. Get PUUID
+        const accountRes = await fetch(`https://${region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${username}/${tag}?api_key=${RIOT_API_KEY}`);
+        const account = await accountRes.json();
+        if (!account.puuid) throw new Error("Nie znaleziono gracza.");
+
+        // 2. Get Summoner ID
+        const summonerRes = await fetch(`https://${platform}.api.riotgames.com/tft/summoner/v1/summoners/by-puuid/${account.puuid}?api_key=${RIOT_API_KEY}`);
         const summoner = await summonerRes.json();
+        if (!summoner.id) throw new Error("Nie znaleziono summoner ID.");
 
-        const rankedRes = await fetch(`https://euw1.api.riotgames.com/lol/league/v4/entries/by-summoner/${summoner.id}`, {
-          headers: { "X-Riot-Token": RIOT_API_KEY }
-        });
-        const ranked = await rankedRes.json();
+        // 3. Get TFT Ranked LP
+        const rankedRes = await fetch(`https://${platform}.api.riotgames.com/tft/league/v1/entries/by-summoner/${summoner.id}?api_key=${RIOT_API_KEY}`);
+        const rankedData = await rankedRes.json();
+        const solo = rankedData.find(q => q.queueType === "RANKED_TFT");
+        if (!solo) throw new Error("Brak danych ranked TFT.");
 
-        const soloQ = ranked.find(entry => entry.queueType === "RANKED_SOLO_5x5");
-        if (!soloQ) throw new Error("Brak danych o soloQ.");
+        const lp = solo.leaguePoints || 0;
+        const tier = solo.tier;
+        const rank = solo.rank;
 
-        const currentLP = soloQ.leaguePoints;
-        const tier = soloQ.tier;
-        const rank = soloQ.rank;
+        document.getElementById("lp").textContent = `${tier} ${rank} - ${lp} LP`;
 
-        const tiers = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD"];
-        const ranks = ["IV", "III", "II", "I"];
-        const currentIndex = tiers.indexOf(tier) * 4 + ranks.indexOf(rank);
-        const emeraldIndex = tiers.indexOf("EMERALD") * 4 + 0;
-        const lpToEmerald = Math.max(0, (emeraldIndex - currentIndex) * 100 - currentLP);
+        // 4. Oblicz brakujące LP do Emerald IV (3600 LP)
+        const tierLpMap = {
+          "IRON": 0, "BRONZE": 400, "SILVER": 800,
+          "GOLD": 1200, "PLATINUM": 1600, "EMERALD": 2000,
+          "DIAMOND": 2400, "MASTER": 2800, "GRANDMASTER": 3200, "CHALLENGER": 3600
+        };
+        const rankOffset = { "IV": 0, "III": 100, "II": 200, "I": 300 };
 
-        document.getElementById("status").innerText = `Aktualna ranga: ${tier} ${rank}`;
-        document.getElementById("lp").innerText = `Masz ${currentLP} LP`;
-        document.getElementById("to-emerald").innerText = `Tyle LP brakuje do Emerald IV: ${lpToEmerald}`;
-      } catch (error) {
-        document.getElementById("status").innerText = "Błąd pobierania danych.";
-        console.error(error);
+        const currentLp = (tierLpMap[tier] || 0) + (rankOffset[rank] || 0) + lp;
+        const targetLp = 2000; // Emerald IV
+
+        const diff = Math.max(0, targetLp - currentLp);
+
+        document.getElementById("difference").textContent =
+          `Brakuje ${diff} LP do Emerald IV`;
+
+      } catch (err) {
+        document.getElementById("lp").textContent = "Błąd pobierania LP";
+        document.getElementById("error").textContent = err.message;
+        console.error(err);
       }
     }
 
-    fetchLP();
+    getLP();
   </script>
 </body>
 </html>
