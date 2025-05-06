@@ -48,7 +48,7 @@
 
     async function getLP() {
       try {
-        const accountRes = await fetch(`https://${region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${username}/${tag}?api_key=${RIOT_API_KEY}`);
+        const accountRes = await fetch(`https://${region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(username)}/${encodeURIComponent(tag)}?api_key=${RIOT_API_KEY}`);
         const account = await accountRes.json();
         if (!account.puuid) throw new Error("Nie znaleziono gracza.");
 
