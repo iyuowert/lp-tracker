@@ -1,5 +1,5 @@
 export async function handler(event, context) {
-  const RIOT_API_KEY = "TU_WSTAW_SWÓJ_KLUCZ_API";
+  const RIOT_API_KEY = "RGAPI-31409df3-9a83-4aaf-9edb-f4bace8b87fa";
   const username = "2024MUSIC";
   const tag = "2024";
   const region = "europe";
