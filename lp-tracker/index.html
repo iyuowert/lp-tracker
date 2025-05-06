@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LP Tracker TFT</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      padding-top: 50px;
+    }
+    .container {
+      background: #1e293b;
+      padding: 30px;
+      margin: auto;
+      width: 300px;
+      border-radius: 20px;
+      box-shadow: 0 0 10px #0ea5e9;
+    }
+    .lp {
+      font-size: 2rem;
+      margin: 20px 0;
+      color: #22d3ee;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>LP Tracker TFT</h1>
+    <div id="lp" class="lp">Ładowanie LP...</div>
+    <div id="difference"></div>
+    <div id="error" class="error"></div>
+  </div>
+
+  <script>
+    async function getLP() {
+      try {
+        const res = await fetch("/.netlify/functions/getLP");
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        const { tier, rank, lp, difference } = data;
+
+        document.getElementById("lp").textContent = `${tier} ${rank} - ${lp} LP`;
+        document.getElementById("difference").textContent = `Brakuje ${difference} LP do Emerald IV`;
+
+      } catch (err) {
+        document.getElementById("lp").textContent = "Błąd pobierania LP";
+        document.getElementById("error").textContent = err.message;
+        console.error(err);
+      }
+    }
+
+    getLP();
+  </script>
+</body>
+</html>
